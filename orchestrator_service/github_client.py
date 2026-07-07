@@ -22,8 +22,10 @@ settings = get_settings()
 
 def generate_app_jwt() -> str:
     """Create the GitHub App JWT (valid ~10 minutes) used to mint installation tokens."""
-    with open(settings.github_app_private_key_path, "r") as f:
-        private_key = f.read()
+    private_key = settings.github_app_private_key
+    if not private_key and settings.github_app_private_key_path:
+        with open(settings.github_app_private_key_path, "r") as f:
+            private_key = f.read()
 
     now = int(time.time())
     payload = {

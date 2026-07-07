@@ -15,8 +15,11 @@ settings = get_settings()
 
 
 def generate_app_jwt() -> str:
-    with open(settings.github_app_private_key_path, "r") as f:
-        private_key = f.read()
+    private_key = settings.github_app_private_key
+    if not private_key and settings.github_app_private_key_path:
+        with open(settings.github_app_private_key_path, "r") as f:
+            private_key = f.read()
+            
     now = int(time.time())
     payload = {"iat": now - 60, "exp": now + (9 * 60), "iss": settings.github_app_id}
     return jwt.encode(payload, private_key, algorithm="RS256")

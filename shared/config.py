@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     # GitHub App
     github_app_id: str = ""
     github_app_private_key_path: str = ""
+    github_app_private_key: str = ""
     github_webhook_secret: str = "changeme-webhook-secret"
     github_api_base: str = "https://api.github.com"
 
