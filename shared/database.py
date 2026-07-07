@@ -12,7 +12,9 @@ settings = get_settings()
 Base = declarative_base()
 
 db_url = settings.database_url
-if db_url.startswith("postgresql://"):
+if not db_url or db_url.strip() == "":
+    db_url = "sqlite+aiosqlite:///pr_reviewer.db"
+elif db_url.startswith("postgresql://"):
     db_url = db_url.replace("postgresql://", "postgresql+asyncpg://", 1)
 
 engine = create_async_engine(db_url, pool_pre_ping=True, future=True)
