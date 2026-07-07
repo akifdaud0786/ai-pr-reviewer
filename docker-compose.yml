@@ -1,0 +1,137 @@
+version: "3.9"
+
+x-common-env: &common-env
+  DATABASE_URL: ${DATABASE_URL}
+  REDIS_URL: ${REDIS_URL}
+  CELERY_BROKER_URL: ${CELERY_BROKER_URL}
+  CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND}
+  GITHUB_APP_ID: ${GITHUB_APP_ID}
+  GITHUB_APP_PRIVATE_KEY_PATH: ${GITHUB_APP_PRIVATE_KEY_PATH}
+  GITHUB_WEBHOOK_SECRET: ${GITHUB_WEBHOOK_SECRET}
+  GITHUB_API_BASE: ${GITHUB_API_BASE}
+  OPENAI_API_KEY: ${OPENAI_API_KEY}
+  OPENAI_MODEL: ${OPENAI_MODEL}
+  LANGFUSE_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY}
+  LANGFUSE_SECRET_KEY: ${LANGFUSE_SECRET_KEY}
+  LANGFUSE_HOST: ${LANGFUSE_HOST}
+  GATEWAY_INTERNAL_URL: http://webhook_service:8001
+  REVIEWER_SERVICE_URL: http://reviewer_service:8002
+  LEARNER_SERVICE_URL: http://learner_service:8003
+  LOG_LEVEL: ${LOG_LEVEL}
+  ENVIRONMENT: ${ENVIRONMENT}
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  gateway_service:
+    build:
+      context: .
+      dockerfile: gateway_service/Dockerfile
+    restart: unless-stopped
+    environment: *common-env
+    ports:
+      - "8000:8000"
+    depends_on:
+      - webhook_service
+
+  webhook_service:
+    build:
+      context: .
+      dockerfile: webhook_service/Dockerfile
+    restart: unless-stopped
+    environment: *common-env
+    ports:
+      - "8001:8001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  orchestrator_worker:
+    build:
+      context: .
+      dockerfile: orchestrator_service/Dockerfile
+    restart: unless-stopped
+    environment: *common-env
+    volumes:
+      - ./secrets:/run/secrets:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  reviewer_service:
+    build:
+      context: .
+      dockerfile: reviewer_service/Dockerfile
+    restart: unless-stopped
+    environment: *common-env
+    volumes:
+      - ./secrets:/run/secrets:ro
+    ports:
+      - "8002:8002"
+
+  learner_service:
+    build:
+      context: .
+      dockerfile: learner_service/Dockerfile
+    restart: unless-stopped
+    environment: *common-env
+    ports:
+      - "8003:8003"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  prometheus:
+    image: prom/prometheus:latest
+    restart: unless-stopped
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
+
+  grafana:
+    image: grafana/grafana:latest
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    volumes:
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources:ro
+      - grafana_data:/var/lib/grafana
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+
+volumes:
+  pg_data:
+  grafana_data:

@@ -1,0 +1,25 @@
+# Environments
+.env
+.env.*
+secrets/
+
+# Python Cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.venv/
+venv/
+ENV/
+env/
+
+# Databases
+*.db
+*.sqlite3
+pg_data/
+grafana_data/
+
+# Private Keys & Secrets
+*.pem
+*.key

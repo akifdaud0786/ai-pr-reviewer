@@ -1,0 +1,152 @@
+services:
+  # 1. Database (PostgreSQL)
+  - type: db
+    name: pr-reviewer-db
+    databaseName: pr_reviewer
+    user: pruser
+
+  # 2. Cache (Redis)
+  - type: redis
+    name: pr-reviewer-redis
+    ipAllowList: [] # Only allow internal connections
+
+  # 3. Gateway Service
+  - type: web
+    name: gateway-service
+    env: docker
+    dockerfilePath: gateway_service/Dockerfile
+    dockerContext: .
+    plan: free
+    port: 8000
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: pr-reviewer-db
+          property: connectionString
+      - key: REDIS_URL
+        fromConnectionString:
+          name: pr-reviewer-redis
+          property: connectionString
+      - key: CELERY_BROKER_URL
+        fromConnectionString:
+          name: pr-reviewer-redis
+          property: connectionString
+      - key: CELERY_RESULT_BACKEND
+        fromConnectionString:
+          name: pr-reviewer-redis
+          property: connectionString
+      - key: GITHUB_APP_ID
+        sync: false
+      - key: GITHUB_WEBHOOK_SECRET
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: GATEWAY_INTERNAL_URL
+        value: http://webhook-service:8001
+      - key: REVIEWER_SERVICE_URL
+        value: http://reviewer-service:8002
+      - key: LEARNER_SERVICE_URL
+        value: http://learner-service:8003
+      - key: ENVIRONMENT
+        value: production
+
+  # 4. Webhook Service
+  - type: web
+    name: webhook-service
+    env: docker
+    dockerfilePath: webhook_service/Dockerfile
+    dockerContext: .
+    plan: free
+    port: 8001
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: pr-reviewer-db
+          property: connectionString
+      - key: REDIS_URL
+        fromConnectionString:
+          name: pr-reviewer-redis
+          property: connectionString
+      - key: CELERY_BROKER_URL
+        fromConnectionString:
+          name: pr-reviewer-redis
+          property: connectionString
+      - key: CELERY_RESULT_BACKEND
+        fromConnectionString:
+          name: pr-reviewer-redis
+          property: connectionString
+      - key: GITHUB_WEBHOOK_SECRET
+        sync: false
+      - key: LEARNER_SERVICE_URL
+        value: http://learner-service:8003
+      - key: ENVIRONMENT
+        value: production
+
+  # 5. Reviewer Service
+  - type: web
+    name: reviewer-service
+    env: docker
+    dockerfilePath: reviewer_service/Dockerfile
+    dockerContext: .
+    plan: free
+    port: 8002
+    envVars:
+      - key: GITHUB_APP_ID
+        sync: false
+      - key: GITHUB_APP_PRIVATE_KEY_PATH
+        value: /etc/secrets/github-app-private-key.pem
+      - key: ENVIRONMENT
+        value: production
+
+  # 6. Learner Service
+  - type: web
+    name: learner-service
+    env: docker
+    dockerfilePath: learner_service/Dockerfile
+    dockerContext: .
+    plan: free
+    port: 8003
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: pr-reviewer-db
+          property: connectionString
+      - key: ENVIRONMENT
+        value: production
+
+  # 7. Orchestrator Worker (Celery Background Worker)
+  - type: worker
+    name: orchestrator-worker
+    env: docker
+    dockerfilePath: orchestrator_service/Dockerfile
+    dockerContext: .
+    plan: free
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: pr-reviewer-db
+          property: connectionString
+      - key: REDIS_URL
+        fromConnectionString:
+          name: pr-reviewer-redis
+          property: connectionString
+      - key: CELERY_BROKER_URL
+        fromConnectionString:
+          name: pr-reviewer-redis
+          property: connectionString
+      - key: CELERY_RESULT_BACKEND
+        fromConnectionString:
+          name: pr-reviewer-redis
+          property: connectionString
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: GITHUB_APP_ID
+        sync: false
+      - key: GITHUB_APP_PRIVATE_KEY_PATH
+        value: /etc/secrets/github-app-private-key.pem
+      - key: REVIEWER_SERVICE_URL
+        value: http://reviewer-service:8002
+      - key: LEARNER_SERVICE_URL
+        value: http://learner-service:8003
+      - key: ENVIRONMENT
+        value: production
