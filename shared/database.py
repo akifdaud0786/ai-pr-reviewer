@@ -11,7 +11,11 @@ settings = get_settings()
 
 Base = declarative_base()
 
-engine = create_async_engine(settings.database_url, pool_pre_ping=True, future=True)
+db_url = settings.database_url
+if db_url.startswith("postgresql://"):
+    db_url = db_url.replace("postgresql://", "postgresql+asyncpg://", 1)
+
+engine = create_async_engine(db_url, pool_pre_ping=True, future=True)
 AsyncSessionLocal = async_sessionmaker(bind=engine, expire_on_commit=False, class_=AsyncSession)
 
 
