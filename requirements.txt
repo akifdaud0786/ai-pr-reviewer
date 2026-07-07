@@ -17,3 +17,4 @@ langfuse==2.51.3
 prometheus-fastapi-instrumentator==7.0.0
 python-multipart==0.0.9
 tenacity==8.5.0
+aiosqlite==0.20.0
