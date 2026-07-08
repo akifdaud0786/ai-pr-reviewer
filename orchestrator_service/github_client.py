@@ -20,9 +20,28 @@ logger = logging.getLogger("orchestrator_service.github_client")
 settings = get_settings()
 
 
+def sanitize_pem_key(key_str: str) -> str:
+    key_str = key_str.strip()
+    if not key_str:
+        return ""
+    if "\n" in key_str and "-----BEGIN" in key_str:
+        return key_str
+    
+    key_str = key_str.replace('"', '').replace("'", '')
+    header = "-----BEGIN RSA PRIVATE KEY-----"
+    footer = "-----END RSA PRIVATE KEY-----"
+    if "-----BEGIN PRIVATE KEY-----" in key_str:
+        header = "-----BEGIN PRIVATE KEY-----"
+        footer = "-----END PRIVATE KEY-----"
+        
+    body = key_str.replace(header, "").replace(footer, "").strip().replace(" ", "")
+    lines = [body[i:i+64] for i in range(0, len(body), 64)]
+    return f"{header}\n" + "\n".join(lines) + f"\n{footer}"
+
+
 def generate_app_jwt() -> str:
     """Create the GitHub App JWT (valid ~10 minutes) used to mint installation tokens."""
-    private_key = settings.github_app_private_key
+    private_key = sanitize_pem_key(settings.github_app_private_key)
     if not private_key and settings.github_app_private_key_path:
         with open(settings.github_app_private_key_path, "r") as f:
             private_key = f.read()
