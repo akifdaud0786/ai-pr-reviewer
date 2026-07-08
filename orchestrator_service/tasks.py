@@ -77,7 +77,7 @@ async def _dispatch_to_reviewer(job: ReviewJob, merged_findings: list[dict], sum
     async with httpx.AsyncClient(timeout=30.0) as client:
         try:
             resp = await client.post(
-                f"{settings.reviewer_service_url}/reviewer/post-comments",
+                f"{settings.reviewer_service_url.strip()}/reviewer/post-comments",
                 json=payload.model_dump(),
             )
             resp.raise_for_status()
