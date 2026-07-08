@@ -21,20 +21,21 @@ settings = get_settings()
 
 
 def sanitize_pem_key(key_str: str) -> str:
-    key_str = key_str.strip()
+    if not key_str:
+        return ""
+    key_str = key_str.replace("\\n", "\n").replace("\\r", "\n")
+    key_str = key_str.strip().replace('"', '').replace("'", '')
     if not key_str:
         return ""
     if "\n" in key_str and "-----BEGIN" in key_str:
-        return key_str
-    
-    key_str = key_str.replace('"', '').replace("'", '')
+        lines = [line.strip() for line in key_str.split("\n") if line.strip()]
+        return "\n".join(lines)
     header = "-----BEGIN RSA PRIVATE KEY-----"
     footer = "-----END RSA PRIVATE KEY-----"
     if "-----BEGIN PRIVATE KEY-----" in key_str:
         header = "-----BEGIN PRIVATE KEY-----"
         footer = "-----END PRIVATE KEY-----"
-        
-    body = key_str.replace(header, "").replace(footer, "").strip().replace(" ", "")
+    body = key_str.replace(header, "").replace(footer, "").strip().replace(" ", "").replace("\n", "").replace("\r", "")
     lines = [body[i:i+64] for i in range(0, len(body), 64)]
     return f"{header}\n" + "\n".join(lines) + f"\n{footer}"
 
