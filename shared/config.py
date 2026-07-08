@@ -36,9 +36,9 @@ class Settings(BaseSettings):
     langfuse_host: str = "https://cloud.langfuse.com"
 
     # Internal service URLs
-    gateway_internal_url: str = "http://localhost:8001"
-    reviewer_service_url: str = "http://localhost:8002"
-    learner_service_url: str = "http://localhost:8003"
+    gateway_internal_url: str = "http://webhook_service:8001"
+    reviewer_service_url: str = "http://reviewer_service:8002"
+    learner_service_url: str = "http://learner_service:8003"
 
     log_level: str = "INFO"
     environment: str = "development"
