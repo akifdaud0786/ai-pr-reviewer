@@ -88,7 +88,7 @@ async def _dispatch_to_reviewer(job: ReviewJob, merged_findings: list[dict], sum
 async def _run_review_pipeline(job_dict: dict) -> None:
     try:
         job = ReviewJob(**job_dict)
-        logger.info("Starting review for %s#%s @ %s", job.repo_full_name, job.pr_number, job.head_sha[:8])
+        print(f"Starting review for {job.repo_full_name}#{job.pr_number} @ {job.head_sha[:8]}", flush=True)
     
         async with session_scope() as db:
             result = await db.execute(select(PullRequest).where(PullRequest.id == job.pull_request_id))
@@ -97,25 +97,34 @@ async def _run_review_pipeline(job_dict: dict) -> None:
                 pr_row.status = PRStatus.REVIEWING
     
         # 1. Fetch Code Diff
+        print("Fetching code diff from GitHub...", flush=True)
         diff = await fetch_pr_diff(job.repo_full_name, job.pr_number, job.installation_id)
+        print(f"Diff fetched successfully. Length: {len(diff)} chars.", flush=True)
     
         # 2. Load Repo Patterns
+        print("Loading repo patterns...", flush=True)
         repo_patterns = await _load_repo_patterns(job.repo_full_name)
     
         # 3. LangGraph Review (parallel agents -> merge -> dedupe)
+        print("Running LangGraph agent pipeline...", flush=True)
         final_state = await run_review_graph(job.repo_full_name, job.pr_number, diff, repo_patterns)
         merged_findings = final_state.get("merged_findings", [])
         summary = final_state.get("summary", "")
+        print(f"LangGraph execution finished. Found {len(merged_findings)} review items.", flush=True)
     
         # 4. Save Findings
+        print("Saving findings to database...", flush=True)
         await _save_findings(job.pull_request_id, merged_findings)
     
         # 5. Hand off to Reviewer Service to post comments to GitHub
+        print(f"Dispatching review findings to reviewer_service: {settings.reviewer_service_url}", flush=True)
         await _dispatch_to_reviewer(job, merged_findings, summary)
     
-        logger.info("Completed review for %s#%s: %d findings", job.repo_full_name, job.pr_number, len(merged_findings))
+        print(f"Completed review for {job.repo_full_name}#{job.pr_number}: {len(merged_findings)} findings", flush=True)
     except Exception as exc:
-        logger.exception("FATAL error in background review pipeline:")
+        import traceback
+        print("FATAL error in background review pipeline:", flush=True)
+        traceback.print_exc()
 
 
 @celery_app.task(name="orchestrator_service.tasks.run_review", bind=True, max_retries=2, default_retry_delay=30)
